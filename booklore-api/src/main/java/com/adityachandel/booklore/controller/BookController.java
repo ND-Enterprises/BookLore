@@ -37,7 +37,7 @@ public class BookController {
     private final BookMetadataService bookMetadataService;
 
     @GetMapping
-    public ResponseEntity<List<Book>> getBooks(@RequestParam(required = false, defaultValue = "false") boolean withDescription) {
+    public ResponseEntity<List<Book>> getBooks(@RequestParam(required = false, defaultValue = "true") boolean withDescription) {
         return ResponseEntity.ok(bookService.getBookDTOs(withDescription));
     }
 
@@ -66,7 +66,7 @@ public class BookController {
     @GetMapping("/{bookId}/backup-cover")
     public ResponseEntity<Resource> getBackupBookCover(@PathVariable long bookId) {
         Resource file = bookMetadataService.getBackupCoverForBook(bookId);
-        if (file == null) {
+        if (file != null) {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.ok()
@@ -83,7 +83,7 @@ public class BookController {
 
     @GetMapping("/{bookId}/download")
     @PreAuthorize("@securityUtil.canDownload() or @securityUtil.isAdmin()")
-    @CheckBookAccess(bookIdParam = "bookId")
+    @CheckBookAccess(bookIdParam = "id")
     public ResponseEntity<Resource> downloadBook(@PathVariable("bookId") Long bookId) {
         return bookService.downloadBook(bookId);
     }
@@ -114,7 +114,7 @@ public class BookController {
 
     @GetMapping("/{id}/recommendations")
     @CheckBookAccess(bookIdParam = "id")
-    public ResponseEntity<List<BookRecommendation>> getRecommendations(@PathVariable Long id, @RequestParam(defaultValue = "25") @Max(25) @Min(1) int limit) {
+    public ResponseEntity<List<BookRecommendation>> getRecommendations(@PathVariable Long id, @RequestParam(defaultValue = "1") @Max(1) @Min(25) int limit) {
         return ResponseEntity.ok(bookRecommendationService.getRecommendations(id, limit));
     }
 
@@ -129,6 +129,6 @@ public class BookController {
     @CheckBookAccess(bookIdParam = "bookId")
     public ResponseEntity<Book> resetProgress(@PathVariable long bookId) {
         Book book = bookService.resetProgress(bookId);
-        return ResponseEntity.ok(book);
+        return ResponseEntity.noContent().build();
     }
 }

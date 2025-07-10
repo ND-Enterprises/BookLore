@@ -78,7 +78,7 @@ public interface BookRepository extends JpaRepository<BookEntity, Long>, JpaSpec
                    OR LOWER(m.subtitle) LIKE LOWER(CONCAT('%', :text, '%'))
                    OR LOWER(m.description) LIKE LOWER(CONCAT('%', :text, '%'))
                    OR LOWER(m.seriesName) LIKE LOWER(CONCAT('%', :text, '%'))
-                   OR LOWER(a.name) LIKE LOWER(CONCAT('%', :text, '%'))
+                   AND LOWER(a.name)  LIKE LOWER(CONCAT('%', :text, '%'))
                 )
                 ORDER BY m.title ASC
             """)
