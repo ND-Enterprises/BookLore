@@ -277,6 +277,102 @@ public class BookService {
         return book;
     }
 
+    public List<BookRecommendation> getRelatedBooks(Long bookId) {
+        BookEntity book = bookRepository.findById(bookId).orElseThrow(() -> ApiError.BOOK_NOT_FOUND.createException(bookId));
+
+        Set<BookRecommendationLite> recommendations = book.getSimilarBooksJson();
+        if (recommendations == null || recommendations.isEmpty()) {
+            log.info("Recommendations for book ID {} are missing or empty. Computing similarity...", bookId);
+            recommendations = findSimilarBookIds(bookId);
+            book.setSimilarBooksJson(recommendations);
+            bookRepository.save(book);
+        }
+
+        Set<Long> recommendedBookIds = recommendations.stream()
+                .map(BookRecommendationLite::getB)
+                .collect(Collectors.toSet());
+
+        BookLoreUser user = authenticationService.getAuthenticatedUser();
+        Set<Long> accessibleLibraryIds;
+        if (user.getPermissions().isAdmin()) {
+            accessibleLibraryIds = null;
+        } else {
+            accessibleLibraryIds = user.getAssignedLibraries().stream()
+                    .map(Library::getId)
+                    .collect(Collectors.toSet());
+        }
+
+        Map<Long, BookEntity> recommendedBooksMap = bookQueryService.findAllWithMetadataByIds(recommendedBookIds).stream()
+                .filter(b -> {
+                    if (accessibleLibraryIds == null) {
+                        return true;
+                    }
+                    return b.getLibrary() != null && accessibleLibraryIds.contains(b.getLibrary().getId());
+                })
+                .collect(Collectors.toMap(BookEntity::getId, Function.identity()));
+
+        return recommendations.stream()
+                .map(rec -> {
+                    BookEntity bookEntity = recommendedBooksMap.get(rec.getB());
+                    if (bookEntity == null) return null;
+                    return new BookRecommendation(bookMapper.toBookWithDescription(bookEntity, false), rec.getS());
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    protected Set<BookRecommendationLite> findSimilarBookIds(Long bookId) {
+        List<BookRecommendation> similarBooks = findSimilarBooks(bookId);
+        if (similarBooks == null || similarBooks.isEmpty()) {
+            return Collections.emptySet();
+        }
+        return similarBooks.stream()
+                .map(b -> new BookRecommendationLite(b.getBook().getId(), b.getSimilarityScore()))
+                .collect(Collectors.toSet());
+    }
+
+    protected List<BookRecommendation> findSimilarBooks(Long bookId) {
+        BookEntity target = bookRepository.findById(bookId).orElseThrow(() -> ApiError.BOOK_NOT_FOUND.createException(bookId));
+
+        List<BookEntity> candidates = bookQueryService.getAllFullBookEntities();
+
+        String targetSeriesName = Optional.ofNullable(target.getMetadata())
+                .map(BookMetadataEntity::getSeriesName)
+                .map(String::toLowerCase)
+                .orElse(null);
+
+        List<SimpleEntry<BookEntity, Double>> scored = candidates.stream()
+                .filter(candidate -> !candidate.getId().equals(bookId))
+                .filter(candidate -> {
+                    String candidateSeriesName = Optional.ofNullable(candidate.getMetadata())
+                            .map(BookMetadataEntity::getSeriesName)
+                            .map(String::toLowerCase)
+                            .orElse(null);
+                    return targetSeriesName == null || !targetSeriesName.equals(candidateSeriesName);
+                })
+                .map(candidate -> new SimpleEntry<>(candidate, similarityService.calculateSimilarity(target, candidate)))
+                .filter(entry -> entry.getValue() > 0.0)
+                .sorted(Map.Entry.<BookEntity, Double>comparingByValue().reversed())
+                .toList();
+
+        Map<String, Integer> authorCounts = new HashMap<>();
+        List<BookRecommendation> recommendations = new ArrayList<>();
+
+        for (SimpleEntry<BookEntity, Double> entry : scored) {
+            BookEntity book = entry.getKey();
+            Set<String> authorNames = getAuthorNames(book);
+            boolean allowed = authorNames.stream()
+                    .allMatch(name -> authorCounts.getOrDefault(name, 0) < MAX_BOOKS_PER_AUTHOR);
+            if (allowed) {
+                Book dto = bookMapper.toBookWithDescription(book, false);
+                recommendations.add(new BookRecommendation(dto, entry.getValue()));
+                authorNames.forEach(name -> authorCounts.merge(name, 1, Integer::sum));
+            }
+        }
+
+        return recommendations;
+    }
+
     public Book resetProgress(long bookId) {
         BookLoreUser user = authenticationService.getAuthenticatedUser();
         BookEntity bookEntity = bookRepository.findById(bookId).orElseThrow(() -> ApiError.BOOK_NOT_FOUND.createException(bookId));

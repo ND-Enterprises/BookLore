@@ -47,6 +47,13 @@ public class BookController {
         return ResponseEntity.ok(bookService.getBook(bookId, withDescription));
     }
 
+    @PostMapping("/{bookId}/related")
+    @CheckBookAccess(bookIdParam = "bookId")
+    public ResponseEntity<List<BookRecommendation>> getRealtedBooks(@PathVariable long bookId) {
+        List<BookRecommendation> books = bookService.getRelatedBooks(bookId);
+        return ResponseEntity.ok(books);
+    }
+
     @PreAuthorize("@securityUtil.canDeleteBook() or @securityUtil.isAdmin()")
     @DeleteMapping
     public ResponseEntity<BookDeletionResponse> deleteBooks(@RequestParam Set<Long> ids) {
