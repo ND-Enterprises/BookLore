@@ -124,20 +124,20 @@ public class BookService {
     }
 
     public Book updateBookDetails(Long bookId, Book bookDetails) {
-        BookEntity bookEntity = bookRepository.findById(bookId)
+        bookRepository.updateBookDetails(
+                bookId,
+                bookDetails.getFileName(),
+                bookDetails.getFileSubPath(),
+                bookDetails.getBookType(),
+                bookDetails.getFileSizeKb(),
+                bookDetails.getMetadataMatchScore()
+        );
+
+        // After the update, we return the updated book (using the same book ID to fetch it if necessary)
+        BookEntity updatedBookEntity = bookRepository.findById(bookId)
                 .orElseThrow(() -> new RuntimeException("Book not found"));
 
-        // Update book fields
-        bookEntity.setFileName(bookDetails.getFileName());
-        bookEntity.setFileSubPath(bookDetails.getFileSubPath());
-        bookEntity.setBookType(bookDetails.getBookType());
-        bookEntity.setFileSizeKb(bookDetails.getFileSizeKb());
-        bookEntity.setMetadataMatchScore(bookDetails.getMetadataMatchScore());
-        // You can add more fields here as necessary
-
-        bookRepository.save(bookEntity);
-
-        return new Book(bookEntity);  // Assuming Book DTO has a constructor accepting BookEntity
+        return new Book(updatedBookEntity);
     }
 
     public BookViewerSettings getBookViewerSetting(long bookId) {
