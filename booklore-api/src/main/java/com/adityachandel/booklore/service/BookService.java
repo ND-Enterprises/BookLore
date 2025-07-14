@@ -123,6 +123,23 @@ public class BookService {
         }
     }
 
+    public Book updateBookDetails(Long bookId, Book bookDetails) {
+        BookEntity bookEntity = bookRepository.findById(bookId)
+                .orElseThrow(() -> new RuntimeException("Book not found"));
+
+        // Update book fields
+        bookEntity.setFileName(bookDetails.getFileName());
+        bookEntity.setFileSubPath(bookDetails.getFileSubPath());
+        bookEntity.setBookType(bookDetails.getBookType());
+        bookEntity.setFileSizeKb(bookDetails.getFileSizeKb());
+        bookEntity.setMetadataMatchScore(bookDetails.getMetadataMatchScore());
+        // You can add more fields here as necessary
+
+        bookRepository.save(bookEntity);
+
+        return new Book(bookEntity);  // Assuming Book DTO has a constructor accepting BookEntity
+    }
+
     public BookViewerSettings getBookViewerSetting(long bookId) {
         BookEntity bookEntity = bookRepository.findById(bookId).orElseThrow(() -> ApiError.BOOK_NOT_FOUND.createException(bookId));
         BookLoreUser user = authenticationService.getAuthenticatedUser();

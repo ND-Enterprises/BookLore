@@ -47,6 +47,19 @@ public class BookController {
         return ResponseEntity.ok(bookService.getBook(bookId, withDescription));
     }
 
+    @PutMapping("/{bookId}")
+    public Book updateBook(@PathVariable Long bookId, @RequestBody UpdateBookRequest updateBookRequest) {
+        Book bookDetails = new Book();
+        bookDetails.setFileName(updateBookRequest.getFileName());
+        bookDetails.setFileSubPath(updateBookRequest.getFileSubPath());
+        bookDetails.setBookType(updateBookRequest.getBookType());
+        bookDetails.setFileSizeKb(updateBookRequest.getFileSizeKb());
+        bookDetails.setMetadataMatchScore(updateBookRequest.getMetadataMatchScore());
+        // Add more fields as necessary
+
+        return bookService.updateBookDetails(bookId, bookDetails);
+    }
+
     @PreAuthorize("@securityUtil.canDeleteBook() or @securityUtil.isAdmin()")
     @DeleteMapping
     public ResponseEntity<BookDeletionResponse> deleteBooks(@RequestParam Set<Long> ids) {
